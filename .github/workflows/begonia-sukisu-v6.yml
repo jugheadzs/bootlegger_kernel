@@ -1,9 +1,6 @@
 name: Begonia MIUI12 SukiSU test v6
 
 on:
-  push:
-    branches:
-      - begonia-sukisu-miui12-a10
   workflow_dispatch:
 
 jobs:
