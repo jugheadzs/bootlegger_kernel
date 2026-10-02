@@ -1,0 +1,41 @@
+name: Begonia MIUI12 SukiSU test
+
+on:
+  push:
+    branches:
+      - begonia-sukisu-miui12-a10
+    paths:
+      - 'begonia-sukisu/**'
+      - '.github/workflows/begonia-sukisu.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  DEBIAN_FRONTEND: noninteractive
+
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    steps:
+      - name: Checkout build branch
+        uses: actions/checkout@v4
+
+      - name: Build stock-based begonia SukiSU kernel
+        working-directory: begonia-sukisu
+        run: bash build.sh
+
+      - name: Show artifacts
+        if: always()
+        run: |
+          find begonia-sukisu/artifacts -maxdepth 1 -type f -printf '%f %s bytes\n' 2>/dev/null || true
+
+      - name: Upload kernel artifacts
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: begonia-miui12-a10-sukisu-v3.2.0-test1
+          path: begonia-sukisu/artifacts/*
+          if-no-files-found: error
