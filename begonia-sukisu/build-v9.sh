@@ -14,8 +14,6 @@ mkdir -p "$TC"
 
 git clone --depth=1 --branch begonia-q-oss https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git "$KERNEL"
 
-# Exact Android 10 AOSP clang-r353983c, mirrored on GitHub to avoid
-# intermittent 503 errors from android.googlesource.com.
 git clone --depth=1 --branch droidian --filter=blob:none --sparse \
   https://github.com/droidian/android-platform-prebuilts-clang-host-linux-x86-29.git \
   "$TC/aosp-clang"
@@ -40,11 +38,9 @@ head -n 6 Makefile
 clang --version | head -n 2
 ${CROSS_COMPILE}ld --version | head -n 1
 
-# Linux 4.14 DTC fix for modern host GCC (-fno-common).
 sed -i 's/^YYLTYPE yylloc;$/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.l
 sed -i 's/^YYLTYPE yylloc;$/extern YYLTYPE yylloc;/' scripts/dtc/dtc-lexer.lex.c_shipped
 
-# Missing FocalTech include placeholders from Xiaomi's public source.
 mkdir -p drivers/input/touchscreen/fts8719/include/firmware
 : > drivers/input/touchscreen/fts8719/include/firmware/focal_g7_01.i
 : > drivers/input/touchscreen/fts8719/include/firmware/fw_sample.i
@@ -55,7 +51,6 @@ printf 'SukiSU tag commit: '; git -C KernelSU rev-parse HEAD
 python3 - <<'PY'
 from pathlib import Path
 
-# Linux 4.14 has no MODULE_IMPORT_NS.
 p=Path('KernelSU/kernel/ksu.c')
 s=p.read_text()
 needle='MODULE_IMPORT_NS(VFS_internal_I_am_really_a_filesystem_and_am_NOT_a_driver);'
@@ -64,8 +59,6 @@ if needle in s and '#ifdef MODULE_IMPORT_NS\n' + needle not in s:
     p.write_text(s)
 print('[ok] MODULE_IMPORT_NS compatibility')
 
-# proc_ops was introduced in newer kernels. Linux 4.14 proc_create() expects
-# struct file_operations and the classic field names.
 p=Path('KernelSU/kernel/throne_comm.c')
 s=p.read_text()
 old='''static const struct proc_ops uid_scanner_proc_ops = {\n    .proc_open = uid_scanner_open,\n    .proc_read = seq_read,\n\t.proc_write = uid_scanner_write,\n    .proc_lseek = seq_lseek,\n    .proc_release = single_release,\n};'''
@@ -76,12 +69,10 @@ s=s.replace(old,new,1)
 p.write_text(s)
 print('[ok] throne_comm proc_ops -> file_operations compatibility')
 
-# Xiaomi's 4.14 SELinux predates struct selinux_state. It exposes the legacy
-# globals selinux_enforcing/selinux_enabled.
 p=Path('KernelSU/kernel/selinux/selinux.c')
 s=p.read_text()
 anchor='#include "../klog.h" // IWYU pragma: keep\n'
-compat='''#include "../klog.h" // IWYU pragma: keep\n\n#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)\nextern int selinux_enforcing;\nextern int selinux_enabled;\n#endif\n'''
+compat='''#include "../klog.h" // IWYU pragma: keep\n\n/* Xiaomi begonia 4.14 already provides current_sid() in objsec.h. */\n#define KSU_COMPAT_HAS_CURRENT_SID 1\n\n#if LINUX_VERSION_CODE < KERNEL_VERSION(4, 17, 0)\nextern int selinux_enforcing;\nextern int selinux_enabled;\n#endif\n'''
 if anchor not in s:
     raise SystemExit('[error] selinux include anchor not found')
 s=s.replace(anchor, compat, 1)
@@ -96,7 +87,7 @@ if old_get not in s:
     raise SystemExit('[error] getenforce anchor not found')
 s=s.replace(old_get,new_get,1)
 p.write_text(s)
-print('[ok] legacy SELinux compatibility')
+print('[ok] legacy SELinux/current_sid compatibility')
 PY
 
 ln -s ../KernelSU/kernel drivers/kernelsu
