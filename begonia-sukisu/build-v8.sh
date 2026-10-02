@@ -10,13 +10,16 @@ sudo apt-get update
 sudo apt-get install -y bc bison build-essential cpio curl flex git libelf-dev libssl-dev python3 rsync unzip wget xz-utils zip gcc-aarch64-linux-gnu gcc-arm-linux-gnueabi
 
 rm -rf "$KERNEL" "$OUT" "$TC" "$ROOT/artifacts"
-mkdir -p "$TC/clang"
+mkdir -p "$TC"
 
 git clone --depth=1 --branch begonia-q-oss https://github.com/MiCode/Xiaomi_Kernel_OpenSource.git "$KERNEL"
 
-curl -fL --retry 10 --retry-all-errors --retry-delay 2 \
-  "https://android.googlesource.com/platform/prebuilts/clang/host/linux-x86/+archive/refs/heads/android10-release/clang-r353983c.tar.gz" \
-  | tar -xz -C "$TC/clang"
+# Same AOSP Android 10 clang-r353983c used by Xiaomi-era kernels, fetched
+# from a GitHub mirror to avoid intermittent android.googlesource.com 503s.
+git clone --depth=1 --filter=blob:none --sparse --branch droidian \
+  https://github.com/droidian/android-platform-prebuilts-clang-host-linux-x86-29.git "$TC/aosp-clang"
+git -C "$TC/aosp-clang" sparse-checkout set clang-r353983c
+ln -s "$TC/aosp-clang/clang-r353983c" "$TC/clang"
 
 export PATH="$TC/clang/bin:$PATH"
 export ARCH=arm64
@@ -122,7 +125,7 @@ make O="$OUT" ARCH=arm64 begonia_user_defconfig
   -d KPM \
   -d KPROBES \
   -d KPROBE_EVENTS
-./scripts/config --file "$OUT/.config" -d LOCALVERSION_AUTO --set-str LOCALVERSION "-sukisu-miui12-test8"
+./scripts/config --file "$OUT/.config" -d LOCALVERSION_AUTO --set-str LOCALVERSION "-sukisu-miui12-test9"
 make O="$OUT" olddefconfig
 
 echo "== final KSU config =="
