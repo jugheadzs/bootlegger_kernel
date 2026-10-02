@@ -60,12 +60,12 @@ if needle in s and '#ifdef MODULE_IMPORT_NS\n' + needle not in s:
     p.write_text(s)
 print('[ok] MODULE_IMPORT_NS compatibility')
 
-# proc_ops was introduced in Linux 5.6. Linux 4.14 proc_create() expects
+# proc_ops was introduced in newer kernels. Linux 4.14 proc_create() expects
 # struct file_operations and the classic field names.
 p=Path('KernelSU/kernel/throne_comm.c')
 s=p.read_text()
 old='''static const struct proc_ops uid_scanner_proc_ops = {\n    .proc_open = uid_scanner_open,\n    .proc_read = seq_read,\n\t.proc_write = uid_scanner_write,\n    .proc_lseek = seq_lseek,\n    .proc_release = single_release,\n};'''
-new='''#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)\nstatic const struct proc_ops uid_scanner_proc_ops = {\n    .proc_open = uid_scanner_open,\n    .proc_read = seq_read,\n    .proc_write = uid_scanner_write,\n    .proc_lseek = seq_lseek,\n    .proc_release = single_release,\n};\n#else\nstatic const struct file_operations uid_scanner_proc_ops = {\n    .owner = THIS_MODULE,\n    .open = uid_scanner_open,\n    .read = seq_read,\n    .write = uid_scanner_write,\n    .llseek = seq_lseek,\n    .release = single_release,\n};\n#endif'''
+new='''#if LINUX_VERSION_CODE >= KERNEL_VERSION(5, 6, 0)\nstatic const struct proc_ops uid_scanner_proc_ops = {\n    .proc_open = uid_scanner_open,\n    .proc_read = seq_read,\n    .proc_write = uid_scanner_write,\n    .proc_lseek = seq_lseek,\n    .proc_release = single_release,\n};\n#else\nstatic const struct file_operations uid_scanner_proc_ops = {\n    .open = uid_scanner_open,\n    .read = seq_read,\n    .write = uid_scanner_write,\n    .llseek = seq_lseek,\n    .release = single_release,\n};\n#endif'''
 if old not in s:
     raise SystemExit('[error] throne_comm proc_ops anchor not found')
 s=s.replace(old,new,1)
